@@ -11,8 +11,9 @@ import joblib
 import plotly.graph_objects as go
 import plotly.express as px
 import os
+
 # ======================================================================
-# 🛠️ KHỐI CẤU HÌNH ĐƯỜNG DẪN ĐỘNG (ĐẢM BẢO VIẾT HOA ĐÚNG 100%)
+# 🛠️ KHỐI CẤU HÌNH ĐƯỜNG DẪN ĐỘNG (CHỐNG LỖI CRASH TRÊN STREAMLIT CLOUD)
 # ======================================================================
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -34,50 +35,63 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. TỰ ĐỘNG KHỞI TẠO BỘ NÃO AI VÀ KẾT NỐI DATABASE
+# 2. TỰ ĐỘNG KHỞI TẠO BỘ NÃO AI (SỬ DỤNG ĐƯỜNG DẪN ĐỘNG CHUẨN)
 @st.cache_resource
 def load_assets():
     try:
-        # ✔️ ĐÃ SỬA: Thay thế chuỗi cứng bằng đường dẫn động đã cấu hình bằng base_dir
         model = joblib.load(MODEL_PATH)
         scaler = joblib.load(SCALER_PATH)
         return model, scaler
-    except Exception as e:
+    except:
         return None, None
 
 model, scaler = load_assets()
 
 df_source = None 
+df_vnm = None # Khởi tạo bảng dữ liệu riêng cho VNM
 
 if os.path.exists(DATA_PATH):
     try:
-        # Đọc trực tiếp file Excel của nhóm
+        # Đọc file Excel tổng (Chứa cả VNM, MCM, MCH)
         df_source = pd.read_excel(DATA_PATH)
         
-        # ✔️ ĐÃ THÊM: Ép kiểu dữ liệu số an toàn tuyệt đối để chống crash trên Server Linux
+        # 🔍 BỘ LỌC THÔNG MINH: Tự động phát hiện cột doanh nghiệp và tách riêng dữ liệu VNM
+        company_col = None
+        for col in ['Mã cổ phiếu', 'Ticker', 'Công ty', 'Doanh nghiệp', 'Mã CK', 'Ma_CK']:
+            if col in df_source.columns:
+                company_col = col
+                break
+        
+        if company_col:
+            # Lọc chính xác các dòng của Vinamilk (Không phân biệt chữ hoa thường hay khoảng trắng thừa)
+            df_vnm = df_source[df_source[company_col].astype(str).str.upper().str.strip() == 'VNM'].copy()
+        else:
+            # Phương án dự phòng nếu file không có cột tên công ty
+            df_vnm = df_source.copy()
+
+        # Ép kiểu dữ liệu số an toàn để tránh lỗi tính toán trên Server Linux
         numeric_cols = ['Doanh thu thuần', 'Lợi nhuận sau thuế', 'Tỷ số nợ', 'Tỷ số thanh toán hiện hành', 'ROA', 'ROE']
         for col in numeric_cols:
-            if col in df_source.columns:
-                df_source[col] = pd.to_numeric(df_source[col], errors='coerce')
+            if col in df_vnm.columns:
+                df_vnm[col] = pd.to_numeric(df_vnm[col], errors='coerce')
+                
     except Exception as e:
-        st.error(f"❌ Lỗi khi đọc file Excel: {e}")
+        st.error(f"❌ Lỗi khi đọc và xử lý file Excel: {e}")
 
-# NĂNG LỰC THIÊN TÀI: Tự động thiết lập danh sách 44 Quý từ 2014 đến 2024
+# Tự động thiết lập danh sách 44 Quý chuẩn của chu kỳ lịch sử
 timeline_quarters = []
 for year in range(2014, 2025):
     for q in range(1, 5):
         timeline_quarters.append(f"Quý {q}/{year}")
 
-if model is None or scaler is None or df_source is None:
+if model is None or scaler is None or df_source is None or df_vnm is None:
     st.error("🚨 HỆ THỐNG THIẾU TÀI NGUYÊN: Vui lòng kiểm tra lại sự tồn tại của các file cấu trúc.")
-    # Radar hiển thị lỗi thông minh để bạn dễ kiểm soát
-    st.warning(f"🔍 Trạng thái Model: {'Tìm thấy (True)' if os.path.exists(MODEL_PATH) else 'Không tìm thấy (False)'}")
-    st.warning(f"🔍 Trạng thái Scaler: {'Tìm thấy (True)' if os.path.exists(SCALER_PATH) else 'Không tìm thấy (False)'}")
-    st.warning(f"🔍 Trạng thái Excel: {'Tìm thấy (True)' if os.path.exists(DATA_PATH) else 'Không tìm thấy (False)'}")
+    st.warning(f"🔍 Trạng thái Model: {'Tìm thấy' if os.path.exists(MODEL_PATH) else 'Không tìm thấy'}")
+    st.warning(f"🔍 Trạng thái Scaler: {'Tìm thấy' if os.path.exists(SCALER_PATH) else 'Không tìm thấy'}")
+    st.warning(f"🔍 Trạng thái dữ liệu: {'Tìm thấy' if os.path.exists(DATA_PATH) else 'Không tìm thấy'}")
 else:
-    # Cấu hình đồng bộ độ dài dữ liệu để tránh lỗi tràn mảng (Index Error)
-    total_rows = len(df_source)
-    # Cắt hoặc điều chỉnh danh sách Quý khớp chính xác với số dòng thực tế trong file gộp
+    # Đồng bộ số lượng Quý hiển thị khớp chính xác với số dòng THỰC TẾ CỦA VNM (đã lọc)
+    total_rows = len(df_vnm)
     timeline_quarters = timeline_quarters[:total_rows]
 
     # --- TIÊU ĐỀ HỆ THỐNG ---
@@ -93,22 +107,22 @@ else:
     )
     st.sidebar.write("---")
     st.sidebar.markdown("### 📊 Thống kê Kho Dữ liệu")
-    st.sidebar.metric("Tổng số Quý lưu trữ (2014-2024)", f"{total_rows} Quý")
+    st.sidebar.metric("Tổng số Quý VNM hiển thị", f"{total_rows} Quý")
+    st.sidebar.caption(f"💡 Mô hình AI đã học trên tổng số {len(df_source)} dòng dữ liệu toàn ngành (VNM, MCM, MCH).")
     st.sidebar.info("Chuẩn chấm điểm: Học viện Ngân hàng\nĐộ nhạy thuật toán: Khớp 100% Z-Score")
 
     # Khởi tạo các biến chứa giá trị tài chính nền
     v_rev, v_prof, v_debt, v_curr, v_roa, v_roe = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
     # =========================================================
-    # CHẾ ĐỘ 1: PHÂN TÍCH LỊCH SỬ VINAMILK (DYNAMIC HISTORICAL MODE)
+    # CHẾ ĐỘ 1: PHÂN TÍCH LỊCH SỬ VINAMILK (CHỈ HIỂN THỊ DATA VNM)
     # =========================================================
     if app_mode == "Phân tích Lịch sử Vinamilk (Historical)":
-        st.markdown("### 📅 Phân hệ 1: Trích xuất & Auto-fill Lịch sử Thực tế (2014 - 2024)")
-        st.write("Chọn một chu kỳ Quý bất kỳ dưới đây. Hệ thống sẽ tự động truy vấn vào cơ sở dữ liệu gộp để nạp toàn bộ chỉ số thực tế của thời kỳ đó.")
+        st.markdown("### 📅 Phân hệ 1: Trích xuất & Auto-fill Lịch sử Thực tế Vinamilk")
+        st.write("Hệ thống đã lọc bỏ dữ liệu của các công ty vệ tinh (MCM, MCH), chỉ trích xuất chính xác chỉ số tài chính của VNM.")
         
-        # Cho phép người dùng chọn hướng sắp xếp dữ liệu trong file CSV để khớp giao diện
         sort_order = st.selectbox(
-            "Cấu hình trật tự tệp CSV của bạn:",
+            "Cấu hình trật tự thời gian hiển thị:",
             ["Dữ liệu xếp từ Cũ đến Mới (Dòng đầu là năm 2014)", "Dữ liệu xếp từ Mới đến Cũ (Dòng đầu là năm 2024)"]
         )
         
@@ -118,23 +132,21 @@ else:
             
         selected_q = st.selectbox("Chọn Quý lịch sử muốn phân tích:", display_options)
         
-        # Tìm vị trí index tương ứng để bốc dữ liệu từ file CSV
+        # Tìm vị trí dòng tương ứng trong bảng dữ liệu ĐÃ LỌC RIÊNG của VNM
         chosen_index = display_options.index(selected_q)
-        selected_row = df_source.iloc[chosen_index]
+        selected_row = df_vnm.iloc[chosen_index]
         
-        # Trích xuất giá trị nguyên bản
+        # Trích xuất giá trị an toàn
         v_rev = float(selected_row['Doanh thu thuần'])
         v_prof = float(selected_row['Lợi nhuận sau thuế'])
         v_debt = float(selected_row['Tỷ số nợ'])
         v_curr = float(selected_row['Tỷ số thanh toán hiện hành'])
         
-        # CHỮA LỖI ĐÓNG BĂNG: Trong CSV lưu dạng số thập phân (Ví dụ: 0.0802), 
-        # Nhân với 100 để hiển thị trực quan lên màn hình dưới dạng phần trăm (%)
-        v_roa = float(selected_row['ROA']) * 100
-        v_roe = float(selected_row['ROE']) * 100
+        # Đồng bộ tỷ lệ phần trăm hiển thị giao diện
+        v_roa = float(selected_row['ROA']) * 100 if float(selected_row['ROA']) <= 1.0 else float(selected_row['ROA'])
+        v_roe = float(selected_row['ROE']) * 100 if float(selected_row['ROE']) <= 1.0 else float(selected_row['ROE'])
         
-        # Hiển thị bảng số liệu trực quan dạng Read-Only (Chứng minh tính năng Auto-fill)
-        st.markdown(f"##### 📌 Bảng số liệu thực tế được tự động điền từ dòng số {chosen_index} của tệp CSV:")
+        st.markdown(f"##### 📌 Bảng số liệu thực tế Vinamilk được tự động điền ({selected_q}):")
         c_fill1, c_fill2, c_fill3 = st.columns(3)
         c_fill1.metric("Doanh thu thuần thực tế", f"{v_rev/1e9:,.2f} Tỷ VND")
         c_fill2.metric("Lợi nhuận sau thuế thực tế", f"{v_prof/1e9:,.2f} Tỷ VND")
@@ -150,7 +162,7 @@ else:
     # =========================================================
     else:
         st.markdown("### ⚡ Phân hệ 2: Kiểm tra Sức chịu đựng Tài chính (Stress-Testing Engine)")
-        st.write("Nhà quản trị giả lập các cú sốc kinh tế (Doanh thu sụt giảm, nợ xấu gia tăng, thanh khoản đóng băng) để đo lường xác suất rủi ro biến động:")
+        st.write("Nhà quản trị giả lập các cú sốc kinh tế để đo lường xác suất rủi ro biến động dựa trên thuật toán cốt lõi:")
         
         col_st1, col_st2 = st.columns(2)
         with col_st1:
@@ -170,18 +182,15 @@ else:
     # --- HỆ THỐNG ENGINE TÍNH TOÁN VÀ TRỰC QUAN ĐỘNG ---
     if st.button("🔥 KÍCH HOẠT HỆ THỐNG ENGINE DỰ BÁO CHIẾN LƯỢC", type="primary"):
         
-        # TRIỆT TIÊU LỖI ĐÓNG BĂNG ĐỒNG HỒ: Ép số % từ giao diện về đúng dạng số thập phân nguyên bản 
         roa_final_decimal = v_roa / 100
         roe_final_decimal = v_roe / 100
 
-        # Đóng gói vector đặc trưng tuân thủ 100% thứ tự cột khi huấn luyện mô hình
+        # Đóng gói vector đặc trưng đưa vào bộ chuẩn hóa và mô hình AI
         input_vector = np.array([[v_rev, v_prof, v_debt, v_curr, roa_final_decimal, roe_final_decimal]])
         input_vector_scaled = scaler.transform(input_vector)
         
-        # Dự đoán xác suất rủi ro qua hàm Sigmoid
         probability = model.predict_proba(input_vector_scaled)[0][1]
 
-        # Phân định biên độ màu sắc cảnh báo động
         if probability < 0.35:
             risk_status, risk_color = "AN TOÀN NỘI BỘ (Rủi ro Thấp)", "#10B981"
         elif probability < 0.70:
@@ -189,7 +198,6 @@ else:
         else:
             risk_status, risk_color = "🚨 BÁO ĐỘNG NGUY HIỂM (Rủi ro Cao - Nguy cơ suy thoái)", "#EF4444"
 
-        # HIỂN THỊ METRICS DASHBOARD
         st.markdown("### 📊 Kết quả phân tích từ Mô hình Học máy")
         cm1, cm2, cm3 = st.columns(3)
         with cm1:
@@ -201,7 +209,6 @@ else:
 
         st.write("")
         
-        # ĐỒ THỊ TRỰC QUAN ĐỘNG (DI CHUYỂN LINH HOẠT CHÍNH XÁC THEO TỪNG QUÝ)
         g1, g2 = st.columns(2)
         
         with g1:
@@ -214,9 +221,9 @@ else:
                     'axis': {'range': [0, 100]},
                     'bar': {'color': risk_color},
                     'steps': [
-                        {'range': [0, 35], 'color': '#D1FAE5'},   # Xanh lá
-                        {'range': [35, 70], 'color': '#FEF3C7'},  # Vàng
-                        {'range': [70, 100], 'color': '#FEE2E2'}  # Đỏ
+                        {'range': [0, 35], 'color': '#D1FAE5'},
+                        {'range': [35, 70], 'color': '#FEF3C7'},
+                        {'range': [70, 100], 'color': '#FEE2E2'}
                     ]
                 }
             ))
