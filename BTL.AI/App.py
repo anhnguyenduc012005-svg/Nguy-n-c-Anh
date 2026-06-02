@@ -17,11 +17,43 @@ import os
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
 # ======================================================================
-# 🛠️ ĐƯỜNG DẪN ĐỒNG BỘ CHO CLOUD VÀ FILE EXCEL (.xlsx)
+# 🛠️ CẤU HÌNH ĐƯỜNG DẪN ĐỒNG BỘ DÀNH CHO CLOUD VÀ FILE EXCEL (.xlsx)
 # ======================================================================
 MODEL_PATH = "logistic_model.pkl"
 SCALER_PATH = "scaler.pkl"
-DATA_PATH = "processed_financial_data.xlsx" # <--- Đổi hẳn sang .xlsx nếu nhóm dùng file Excel
+DATA_PATH = "processed_financial_data.xlsx" # <--- Đổi hẳn sang quét file .xlsx
+
+@st.cache_resource
+def load_assets():
+    try:
+        model = joblib.load(MODEL_PATH)
+        scaler = joblib.load(SCALER_PATH)
+        return model, scaler
+    except:
+        return None, None
+
+model, scaler = load_assets()
+
+# Khởi tạo biến dữ liệu nguồn ban đầu
+df_source = None
+
+# Kiểm tra sự tồn tại của file Excel trên Server Cloud
+if os.path.exists(DATA_PATH):
+    try:
+        df_source = pd.read_excel(DATA_PATH)
+    except Exception as e:
+        st.error(f"❌ Lỗi khi đọc file Excel bằng thư viện openpyxl: {e}")
+
+# ======================================================================
+# 🚨 KHỐI KIỂM TRA ĐIỀU KIỆN TÀI NGUYÊN (ĐÃ ĐƯỢC CHUẨN HÓA ĐUÔI .XLSX)
+# ======================================================================
+if model is None or scaler is None or df_source is None:
+    st.error(f"🚨 HỆ THỐNG THIẾU TÀI NGUYÊN TRÊN CLOUD:\n"
+             f"👉 Cần đảm bảo trên GitHub của bạn có ĐỦ 3 file sau nằm ở thư mục gốc:\n"
+             f"1. '{MODEL_PATH}' (File bộ não)\n"
+             f"2. '{SCALER_PATH}' (File chuẩn hóa)\n"
+             f"3. '{DATA_PATH}' (File dữ liệu Excel thực tế)")
+    st.stop() # Dừng chương trình tại đây nếu thiếu file để tránh lỗi crash NameError phía dưới
 
 # 1. CẤU HÌNH GIAO DIỆN HỆ THỐNG THÔNG TIN NGÂN HÀNG CAO CẤP
 st.set_page_config(page_title="VNM Risk Cockpit 2014-2024", layout="wide", initial_sidebar_state="expanded")
