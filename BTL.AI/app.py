@@ -15,7 +15,27 @@ import os
 # 🛠️ KHỐI CẤU HÌNH ĐƯỜNG DẪN ĐỘNG (ĐẢM BẢO VIẾT HOA ĐÚNG 100%)
 # ======================================================================
 base_dir = os.path.dirname(os.path.abspath(__file__))
+# --- ĐOẠN KHỞI TẠO VÀ NẠP FILE EXCEL CHUẨN HOÁ CHỐNG CRASH CLOUD ---
+model, scaler = load_assets()
+df_source = None
 
+if os.path.exists(DATA_PATH):
+    try:
+        # 1. Đọc trực tiếp file Excel
+        df_source = pd.read_excel(DATA_PATH)
+        
+        # 2. ÉP KIỂU TUYỆT ĐỐI: Ép toàn bộ các cột tính toán về dạng số (Float)
+        # Nếu dính ô trống hoặc lỗi, tự động chuyển thành NaN để không bị crash thuật toán
+        numeric_cols = ['Doanh thu thuần', 'Lợi nhuận sau thuế', 'Tỷ số nợ', 'Tỷ số thanh toán hiện hành', 'ROA', 'ROE']
+        for col in numeric_cols:
+            if col in df_source.columns:
+                df_source[col] = pd.to_numeric(df_source[col], errors='coerce')
+        
+        # 3. Xử lý xóa bỏ các dòng bị trống hoàn toàn dữ liệu cốt lõi
+        df_source = df_source.dropna(subset=numeric_cols)
+        
+    except Exception as e:
+        st.error(f"❌ Lỗi khi đọc hoặc đồng bộ dữ liệu Excel: {e}")
 # ======================================================================
 # 🛠️ CẤU HÌNH ĐƯỜNG DẪN ĐỒNG BỘ DÀNH CHO CLOUD VÀ FILE EXCEL (.xlsx)
 # ======================================================================
