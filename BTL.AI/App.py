@@ -45,10 +45,20 @@ if os.path.exists(DATA_PATH):
     except Exception as e:
         st.error(f"❌ Lỗi khi nạp dữ liệu Excel: {e}")
 
-# Kiểm tra an toàn tài nguyên
+# Kiểm tra an toàn tài nguyên (Chế độ dò tìm lỗi chi tiết)
 if model is None or scaler is None or df_source is None:
-    st.error(f"🚨 HỆ THỐNG THIẾU TÀI NGUYÊN TRÊN CLOUD:\n"
-             f"👉 Yêu cầu trên kho GitHub phải có đủ 3 file: '{MODEL_PATH}', '{SCALER_PATH}', '{DATA_PATH}'")
+    st.error("🚨 HỆ THỐNG THIẾU TÀI NGUYÊN TRÊN CLOUD! BẢNGKÊ CHI TIẾT:")
+    
+    # Bật radar quét từng file một
+    st.warning(f"🔍 1. Tìm thấy file '{MODEL_PATH}': **{os.path.exists(MODEL_PATH)}**")
+    st.warning(f"🔍 2. Tìm thấy file '{SCALER_PATH}': **{os.path.exists(SCALER_PATH)}**")
+    st.warning(f"🔍 3. Tìm thấy file '{DATA_PATH}': **{os.path.exists(DATA_PATH)}**")
+    
+    if os.path.exists(DATA_PATH) and df_source is None:
+        st.error("⚠️ Phân tích: File Excel CÓ tồn tại trên GitHub, nhưng hệ thống không thể đọc được. "
+                 "Nguyên nhân 99% là do Server chưa cài được thư viện `openpyxl`. "
+                 "Hãy kiểm tra lại file `requirements.txt` đã viết đúng chính tả chưa!")
+                 
     st.stop()
 
 # ======================================================================
