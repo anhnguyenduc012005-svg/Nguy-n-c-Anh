@@ -16,9 +16,12 @@ import os
 # ======================================================================
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_PATH = os.path.join(base_dir, "logistic_model.pkl")
-SCALER_PATH = os.path.join(base_dir, "scaler.pkl")
-DATA_PATH = os.path.join(base_dir, "processed_financial_data.xlsx") # <--- KIỂM TRA KỸ DÒNG NÀY
+# ======================================================================
+# 🛠️ ĐƯỜNG DẪN ĐỒNG BỘ CHO CLOUD VÀ FILE EXCEL (.xlsx)
+# ======================================================================
+MODEL_PATH = "logistic_model.pkl"
+SCALER_PATH = "scaler.pkl"
+DATA_PATH = "processed_financial_data.xlsx" # <--- Đổi hẳn sang .xlsx nếu nhóm dùng file Excel
 
 # 1. CẤU HÌNH GIAO DIỆN HỆ THỐNG THÔNG TIN NGÂN HÀNG CAO CẤP
 st.set_page_config(page_title="VNM Risk Cockpit 2014-2024", layout="wide", initial_sidebar_state="expanded")
