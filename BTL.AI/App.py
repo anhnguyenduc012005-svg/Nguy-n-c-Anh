@@ -7,13 +7,15 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 # ======================================================================
-# 🛠️ CẤU HÌNH TRANG VÀ ĐƯỜNG DẪN DÀNH CHO CLOUD
+# 🛠️ 1. CẤU HÌNH ĐƯỜNG DẪN THÔNG MINH (TỰ ĐỘNG CHUI VÀO ĐÚNG THƯ MỤC)
 # ======================================================================
-st.set_page_config(page_title="Cockpit Dự Báo Rủi Ro", page_icon="🚀", layout="wide")
+# Lấy chính xác địa chỉ của thư mục đang chứa file App.py này (thư mục BTL.AI)
+base_dir = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_PATH = "logistic_model.pkl"
-SCALER_PATH = "scaler.pkl"
-DATA_PATH = "processed_financial_data.xlsx"
+# Ghép tên file vào đúng địa chỉ thư mục đó
+MODEL_PATH = os.path.join(base_dir, "logistic_model.pkl")
+SCALER_PATH = os.path.join(base_dir, "scaler.pkl")
+DATA_PATH = os.path.join(base_dir, "processed_financial_data.xlsx")
 
 # ======================================================================
 # 🧠 ĐỊNH NGHĨA HÀM LOAD TÀI NGUYÊN (BẮT BUỘC ĐẶT TRƯỚC KHI GỌI)
