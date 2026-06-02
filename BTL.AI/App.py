@@ -95,8 +95,6 @@ else:
         "Lựa chọn phương thức phân tích:",
         ["Phân tích Lịch sử Vinamilk (Historical)", "Kiểm tra Sức chịu đựng (Stress-Testing)"]
     )
-    st.sidebar.write("---")
-    st.sidebar.info("Chuẩn chấm điểm: Học viện Ngân hàng\nĐộ nhạy thuật toán: Khớp 100% Z-Score")
 
     v_rev, v_prof, v_debt, v_curr, v_roa, v_roe = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
