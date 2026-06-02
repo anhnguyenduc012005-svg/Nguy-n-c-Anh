@@ -8,9 +8,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import os
 import plotly.graph_objects as go
 import plotly.express as px
-import os
 # ======================================================================
 # 🛠️ KHỐI CẤU HÌNH ĐƯỜNG DẪN ĐỘNG (ĐẢM BẢO VIẾT HOA ĐÚNG 100%)
 # ======================================================================
@@ -37,23 +37,49 @@ if os.path.exists(DATA_PATH):
     except Exception as e:
         st.error(f"❌ Lỗi khi đọc hoặc đồng bộ dữ liệu Excel: {e}")
 # ======================================================================
-# 🛠️ CẤU HÌNH ĐƯỜNG DẪN ĐỒNG BỘ DÀNH CHO CLOUD VÀ FILE EXCEL (.xlsx)
+# 🛠️ 1. CẤU HÌNH ĐƯỜNG DẪN ĐỒNG BỘ DÀNH CHO CLOUD
 # ======================================================================
 MODEL_PATH = "logistic_model.pkl"
 SCALER_PATH = "scaler.pkl"
-DATA_PATH = "processed_financial_data.xlsx" # <--- Đổi hẳn sang quét file .xlsx
-
+DATA_PATH = "processed_financial_data.xlsx"
+# ======================================================================
+# 🧠 2. ĐỊNH NGHĨA HÀM LOAD ASSETS (BẮT BUỘC PHẢI KHAI BÁO TRƯỚC KHI GỌI)
+# ======================================================================
 @st.cache_resource
 def load_assets():
     try:
         model = joblib.load(MODEL_PATH)
         scaler = joblib.load(SCALER_PATH)
         return model, scaler
-    except:
+    except Exception as e:
+        # Trả về None nếu không tìm thấy file để hệ thống xử lý mượt mà, không bị crash
         return None, None
-
+# ======================================================================
+# 🚀 3. BẮT ĐẦU GỌI HÀM VÀ CHẠY CHƯƠNG TRÌNH
+# ======================================================================
 model, scaler = load_assets()
 
+# Khởi tạo dữ liệu nguồn ban đầu
+df_source = None
+
+if os.path.exists(DATA_PATH):
+    try:
+        df_source = pd.read_excel(DATA_PATH)
+        
+        # Ép kiểu dữ liệu số chống lỗi ngầm trên Linux Cloud
+        numeric_cols = ['Doanh thu thuần', 'Lợi nhuận sau thuế', 'Tỷ số nợ', 'Tỷ số thanh toán hiện hành', 'ROA', 'ROE']
+        for col in numeric_cols:
+            if col in df_source.columns:
+                df_source[col] = pd.to_numeric(df_source[col], errors='coerce')
+        df_source = df_source.dropna(subset=numeric_cols)
+    except Exception as e:
+        st.error(f"❌ Lỗi khi đọc hoặc cấu trúc dữ liệu Excel: {e}")
+
+# Kiểm tra điều kiện tài nguyên chiến lược
+if model is None or scaler is None or df_source is None:
+    st.error(f"🚨 HỆ THỐNG THIẾU TÀI NGUYÊN TRÊN CLOUD:\n"
+             f"👉 Hãy chắc chắn trên GitHub của nhóm có đủ 3 file: '{MODEL_PATH}', '{SCALER_PATH}', '{DATA_PATH}'")
+    st.stop()
 # Khởi tạo biến dữ liệu nguồn ban đầu
 df_source = None
 
