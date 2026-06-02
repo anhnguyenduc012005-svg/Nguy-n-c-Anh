@@ -1,78 +1,79 @@
+"""
+SYSTEM: VINAMILK FINANCIAL RISK COCKPIT (DYNAMIC DSS - 2014-2024 FULL VERSION)
+DEVELOPER: GENIUS SOFTWARE ARCHITECT
+THEME: PREMIUM BANKING MANAGEMENT
+"""
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import os
 import plotly.graph_objects as go
 import plotly.express as px
-
+import os
 # ======================================================================
-# 🛠️ 1. CẤU HÌNH ĐƯỜNG DẪN THÔNG MINH (TỰ ĐỘNG CHUI VÀO ĐÚNG THƯ MỤC)
+# 🛠️ KHỐI CẤU HÌNH ĐƯỜNG DẪN ĐỘNG (ĐẢM BẢO VIẾT HOA ĐÚNG 100%)
 # ======================================================================
-# Lấy chính xác địa chỉ của thư mục đang chứa file App.py này (thư mục BTL.AI)
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Ghép tên file vào đúng địa chỉ thư mục đó
 MODEL_PATH = os.path.join(base_dir, "logistic_model.pkl")
 SCALER_PATH = os.path.join(base_dir, "scaler.pkl")
 DATA_PATH = os.path.join(base_dir, "processed_financial_data.xlsx")
 
-# ======================================================================
-# 🧠 ĐỊNH NGHĨA HÀM LOAD TÀI NGUYÊN (KÈM BÁO LỖI CHI TIẾT)
-# ======================================================================
+# 1. CẤU HÌNH GIAO DIỆN HỆ THỐNG THÔNG TIN NGÂN HÀNG CAO CẤP
+st.set_page_config(page_title="VNM Risk Cockpit 2014-2024", layout="wide", initial_sidebar_state="expanded")
+
+st.markdown("""
+    <style>
+    .main { background-color: #F1F5F9; }
+    .stRadio>label { font-size: 16px !important; font-weight: bold !important; color: #1E3A8A; }
+    .metric-card { background-color: #FFFFFF; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); text-align: center; }
+    .report-card { background-color: #FFFFFF; padding: 25px; border-radius: 12px; border-left: 6px solid #1E3A8A; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    div.stButton > button:first-child { background-color: #1E3A8A !important; color: white !important; font-weight: bold !important; border-radius: 8px !important; width: 100%; height: 3.5em; border: none; }
+    div.stButton > button:first-child:hover { background-color: #2563EB !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+# 2. TỰ ĐỘNG KHỞI TẠO BỘ NÃO AI VÀ KẾT NỐI DATABASE
 @st.cache_resource
 def load_assets():
     try:
+        # ✔️ ĐÃ SỬA: Thay thế chuỗi cứng bằng đường dẫn động đã cấu hình bằng base_dir
         model = joblib.load(MODEL_PATH)
         scaler = joblib.load(SCALER_PATH)
         return model, scaler
     except Exception as e:
-        st.error(f"❌ LỖI KHÔNG MỞ ĐƯỢC BỘ NÃO (.pkl): {e}")
         return None, None
 
-# ======================================================================
-# 🚀 KHỞI CHẠY HỆ THỐNG VÀ NẠP DỮ LIỆU
-# ======================================================================
 model, scaler = load_assets()
-df_source = None
+
+df_source = None 
 
 if os.path.exists(DATA_PATH):
     try:
+        # Đọc trực tiếp file Excel của nhóm
         df_source = pd.read_excel(DATA_PATH)
+        
+        # ✔️ ĐÃ THÊM: Ép kiểu dữ liệu số an toàn tuyệt đối để chống crash trên Server Linux
         numeric_cols = ['Doanh thu thuần', 'Lợi nhuận sau thuế', 'Tỷ số nợ', 'Tỷ số thanh toán hiện hành', 'ROA', 'ROE']
         for col in numeric_cols:
             if col in df_source.columns:
                 df_source[col] = pd.to_numeric(df_source[col], errors='coerce')
-        df_source = df_source.dropna(subset=numeric_cols)
     except Exception as e:
-        st.error(f"❌ LỖI KHÔNG ĐỌC ĐƯỢC FILE EXCEL: {e}")
-
-# Kiểm tra an toàn tài nguyên (Chế độ dò tìm lỗi chi tiết)
-if model is None or scaler is None or df_source is None:
-    st.error("🚨 HỆ THỐNG THIẾU TÀI NGUYÊN TRÊN CLOUD! BẢNGKÊ CHI TIẾT:")
-    
-    # Bật radar quét từng file một
-    st.warning(f"🔍 1. Tìm thấy file '{MODEL_PATH}': **{os.path.exists(MODEL_PATH)}**")
-    st.warning(f"🔍 2. Tìm thấy file '{SCALER_PATH}': **{os.path.exists(SCALER_PATH)}**")
-    st.warning(f"🔍 3. Tìm thấy file '{DATA_PATH}': **{os.path.exists(DATA_PATH)}**")
-    
-    if os.path.exists(DATA_PATH) and df_source is None:
-        st.error("⚠️ Phân tích: File Excel CÓ tồn tại trên GitHub, nhưng hệ thống không thể đọc được. "
-                 "Nguyên nhân 99% là do Server chưa cài được thư viện `openpyxl`. "
-                 "Hãy kiểm tra lại file `requirements.txt` đã viết đúng chính tả chưa!")
-                 
-    st.stop()
+        st.error(f"❌ Lỗi khi đọc file Excel: {e}")
 
 # NĂNG LỰC THIÊN TÀI: Tự động thiết lập danh sách 44 Quý từ 2014 đến 2024
-# Lưu ý: Mặc định sinh chuỗi từ Q1/2014 đến Q4/2024. 
-# Nếu file CSV của bạn xếp từ Mới nhất (2024) về Cũ nhất (2014), ta sẽ lật ngược lại ở đoạn sau.
 timeline_quarters = []
 for year in range(2014, 2025):
     for q in range(1, 5):
         timeline_quarters.append(f"Quý {q}/{year}")
 
 if model is None or scaler is None or df_source is None:
-    st.error("🚨 HỆ THỐNG THIẾU TÀI NGUYÊN: Hãy chắc chắn bạn đã chạy train_model.py và đặt file 'processed_financial_data.xlsx - Sheet1.csv' cùng thư mục!")
+    st.error("🚨 HỆ THỐNG THIẾU TÀI NGUYÊN: Vui lòng kiểm tra lại sự tồn tại của các file cấu trúc.")
+    # Radar hiển thị lỗi thông minh để bạn dễ kiểm soát
+    st.warning(f"🔍 Trạng thái Model: {'Tìm thấy (True)' if os.path.exists(MODEL_PATH) else 'Không tìm thấy (False)'}")
+    st.warning(f"🔍 Trạng thái Scaler: {'Tìm thấy (True)' if os.path.exists(SCALER_PATH) else 'Không tìm thấy (False)'}")
+    st.warning(f"🔍 Trạng thái Excel: {'Tìm thấy (True)' if os.path.exists(DATA_PATH) else 'Không tìm thấy (False)'}")
 else:
     # Cấu hình đồng bộ độ dài dữ liệu để tránh lỗi tràn mảng (Index Error)
     total_rows = len(df_source)
@@ -170,7 +171,6 @@ else:
     if st.button("🔥 KÍCH HOẠT HỆ THỐNG ENGINE DỰ BÁO CHIẾN LƯỢC", type="primary"):
         
         # TRIỆT TIÊU LỖI ĐÓNG BĂNG ĐỒNG HỒ: Ép số % từ giao diện về đúng dạng số thập phân nguyên bản 
-        # (Ví dụ: 4.2% trên giao diện đổi thành 0.042 trước khi đi qua bộ chuẩn hóa scaler)
         roa_final_decimal = v_roa / 100
         roe_final_decimal = v_roe / 100
 
