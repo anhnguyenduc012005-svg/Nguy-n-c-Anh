@@ -18,7 +18,7 @@ SCALER_PATH = os.path.join(base_dir, "scaler.pkl")
 DATA_PATH = os.path.join(base_dir, "processed_financial_data.xlsx")
 
 # ======================================================================
-# 🧠 ĐỊNH NGHĨA HÀM LOAD TÀI NGUYÊN (BẮT BUỘC ĐẶT TRƯỚC KHI GỌI)
+# 🧠 ĐỊNH NGHĨA HÀM LOAD TÀI NGUYÊN (KÈM BÁO LỖI CHI TIẾT)
 # ======================================================================
 @st.cache_resource
 def load_assets():
@@ -27,6 +27,7 @@ def load_assets():
         scaler = joblib.load(SCALER_PATH)
         return model, scaler
     except Exception as e:
+        st.error(f"❌ LỖI KHÔNG MỞ ĐƯỢC BỘ NÃO (.pkl): {e}")
         return None, None
 
 # ======================================================================
@@ -38,14 +39,13 @@ df_source = None
 if os.path.exists(DATA_PATH):
     try:
         df_source = pd.read_excel(DATA_PATH)
-        # Ép kiểu dữ liệu số tuyệt đối để chống lỗi Crash trên Cloud
         numeric_cols = ['Doanh thu thuần', 'Lợi nhuận sau thuế', 'Tỷ số nợ', 'Tỷ số thanh toán hiện hành', 'ROA', 'ROE']
         for col in numeric_cols:
             if col in df_source.columns:
                 df_source[col] = pd.to_numeric(df_source[col], errors='coerce')
         df_source = df_source.dropna(subset=numeric_cols)
     except Exception as e:
-        st.error(f"❌ Lỗi khi nạp dữ liệu Excel: {e}")
+        st.error(f"❌ LỖI KHÔNG ĐỌC ĐƯỢC FILE EXCEL: {e}")
 
 # Kiểm tra an toàn tài nguyên (Chế độ dò tìm lỗi chi tiết)
 if model is None or scaler is None or df_source is None:
