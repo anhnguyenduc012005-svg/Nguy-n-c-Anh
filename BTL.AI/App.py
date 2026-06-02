@@ -13,7 +13,7 @@ import plotly.express as px
 import os
 
 # ======================================================================
-# 🛠️ KHỐI CẤU HÌNH ĐƯỜNG DẪN ĐỘNG (CHỐNG LỖI CRASH TRÊN STREAMLIT CLOUD)
+# 🛠️ KHỐI CẤU HÌNH ĐƯỜNG DẪN ĐỘNG
 # ======================================================================
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -35,7 +35,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. TỰ ĐỘNG KHỞI TẠO BỘ NÃO AI (SỬ DỤNG ĐƯỜNG DẪN ĐỘNG CHUẨN)
+# 2. TỰ ĐỘNG KHỞI TẠO BỘ NÃO AI 
 @st.cache_resource
 def load_assets():
     try:
@@ -48,14 +48,12 @@ def load_assets():
 model, scaler = load_assets()
 
 df_source = None 
-df_vnm = None # Khởi tạo bảng dữ liệu riêng cho VNM
+df_vnm = None 
 
 if os.path.exists(DATA_PATH):
     try:
-        # Đọc file Excel tổng (Chứa cả VNM, MCM, MCH)
         df_source = pd.read_excel(DATA_PATH)
         
-        # 🔍 BỘ LỌC THÔNG MINH: Tự động phát hiện cột doanh nghiệp và tách riêng dữ liệu VNM
         company_col = None
         for col in ['Mã cổ phiếu', 'Ticker', 'Công ty', 'Doanh nghiệp', 'Mã CK', 'Ma_CK']:
             if col in df_source.columns:
@@ -63,13 +61,10 @@ if os.path.exists(DATA_PATH):
                 break
         
         if company_col:
-            # Lọc chính xác các dòng của Vinamilk (Không phân biệt chữ hoa thường hay khoảng trắng thừa)
             df_vnm = df_source[df_source[company_col].astype(str).str.upper().str.strip() == 'VNM'].copy()
         else:
-            # Phương án dự phòng nếu file không có cột tên công ty
             df_vnm = df_source.copy()
 
-        # Ép kiểu dữ liệu số an toàn để tránh lỗi tính toán trên Server Linux
         numeric_cols = ['Doanh thu thuần', 'Lợi nhuận sau thuế', 'Tỷ số nợ', 'Tỷ số thanh toán hiện hành', 'ROA', 'ROE']
         for col in numeric_cols:
             if col in df_vnm.columns:
@@ -78,7 +73,6 @@ if os.path.exists(DATA_PATH):
     except Exception as e:
         st.error(f"❌ Lỗi khi đọc và xử lý file Excel: {e}")
 
-# Tự động thiết lập danh sách 44 Quý chuẩn của chu kỳ lịch sử
 timeline_quarters = []
 for year in range(2014, 2025):
     for q in range(1, 5):
@@ -86,11 +80,7 @@ for year in range(2014, 2025):
 
 if model is None or scaler is None or df_source is None or df_vnm is None:
     st.error("🚨 HỆ THỐNG THIẾU TÀI NGUYÊN: Vui lòng kiểm tra lại sự tồn tại của các file cấu trúc.")
-    st.warning(f"🔍 Trạng thái Model: {'Tìm thấy' if os.path.exists(MODEL_PATH) else 'Không tìm thấy'}")
-    st.warning(f"🔍 Trạng thái Scaler: {'Tìm thấy' if os.path.exists(SCALER_PATH) else 'Không tìm thấy'}")
-    st.warning(f"🔍 Trạng thái dữ liệu: {'Tìm thấy' if os.path.exists(DATA_PATH) else 'Không tìm thấy'}")
 else:
-    # Đồng bộ số lượng Quý hiển thị khớp chính xác với số dòng THỰC TẾ CỦA VNM (đã lọc)
     total_rows = len(df_vnm)
     timeline_quarters = timeline_quarters[:total_rows]
 
@@ -106,20 +96,15 @@ else:
         ["Phân tích Lịch sử Vinamilk (Historical)", "Kiểm tra Sức chịu đựng (Stress-Testing)"]
     )
     st.sidebar.write("---")
-    st.sidebar.markdown("### 📊 Thống kê Kho Dữ liệu")
-    st.sidebar.metric("Tổng số Quý VNM hiển thị", f"{total_rows} Quý")
-    st.sidebar.caption(f"💡 Mô hình AI đã học trên tổng số {len(df_source)} dòng dữ liệu toàn ngành (VNM, MCM, MCH).")
     st.sidebar.info("Chuẩn chấm điểm: Học viện Ngân hàng\nĐộ nhạy thuật toán: Khớp 100% Z-Score")
 
-    # Khởi tạo các biến chứa giá trị tài chính nền
     v_rev, v_prof, v_debt, v_curr, v_roa, v_roe = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
     # =========================================================
-    # CHẾ ĐỘ 1: PHÂN TÍCH LỊCH SỬ VINAMILK (CHỈ HIỂN THỊ DATA VNM)
+    # CHẾ ĐỘ 1: PHÂN TÍCH LỊCH SỬ VINAMILK 
     # =========================================================
     if app_mode == "Phân tích Lịch sử Vinamilk (Historical)":
         st.markdown("### 📅 Phân hệ 1: Trích xuất & Auto-fill Lịch sử Thực tế Vinamilk")
-        st.write("Hệ thống đã lọc bỏ dữ liệu của các công ty vệ tinh (MCM, MCH), chỉ trích xuất chính xác chỉ số tài chính của VNM.")
         
         sort_order = st.selectbox(
             "Cấu hình trật tự thời gian hiển thị:",
@@ -132,17 +117,14 @@ else:
             
         selected_q = st.selectbox("Chọn Quý lịch sử muốn phân tích:", display_options)
         
-        # Tìm vị trí dòng tương ứng trong bảng dữ liệu ĐÃ LỌC RIÊNG của VNM
         chosen_index = display_options.index(selected_q)
         selected_row = df_vnm.iloc[chosen_index]
         
-        # Trích xuất giá trị an toàn
         v_rev = float(selected_row['Doanh thu thuần'])
         v_prof = float(selected_row['Lợi nhuận sau thuế'])
         v_debt = float(selected_row['Tỷ số nợ'])
         v_curr = float(selected_row['Tỷ số thanh toán hiện hành'])
         
-        # Đồng bộ tỷ lệ phần trăm hiển thị giao diện
         v_roa = float(selected_row['ROA']) * 100 if float(selected_row['ROA']) <= 1.0 else float(selected_row['ROA'])
         v_roe = float(selected_row['ROE']) * 100 if float(selected_row['ROE']) <= 1.0 else float(selected_row['ROE'])
         
@@ -185,7 +167,6 @@ else:
         roa_final_decimal = v_roa / 100
         roe_final_decimal = v_roe / 100
 
-        # Đóng gói vector đặc trưng đưa vào bộ chuẩn hóa và mô hình AI
         input_vector = np.array([[v_rev, v_prof, v_debt, v_curr, roa_final_decimal, roe_final_decimal]])
         input_vector_scaled = scaler.transform(input_vector)
         
